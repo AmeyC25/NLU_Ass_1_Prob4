@@ -1,57 +1,74 @@
 import streamlit as st
 import pandas as pd
-from sklearn.datasets import fetch_20newsgroups
+import numpy as np
+from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, classification_report
 
-# 1. Data Loading (Using subsets of 20 Newsgroups for Sports vs Politics)
-@st.cache_resource
-def load_data():
-    categories = ['rec.sport.hockey', 'rec.sport.baseball', 'talk.politics.mideast', 'talk.politics.misc']
-    data_train = fetch_20newsgroups(subset='train', categories=categories, remove=('headers', 'footers', 'quotes'))
-    data_test = fetch_20newsgroups(subset='test', categories=categories, remove=('headers', 'footers', 'quotes'))
-    
-    # Map to binary: 0 for Sports, 1 for Politics
-    y_train = [0 if 'sport' in data_train.target_names[i] else 1 for i in data_train.target]
-    y_test = [0 if 'sport' in data_test.target_names[i] else 1 for i in data_test.target]
-    
-    return data_train.data, y_train, data_test.data, y_test
+st.set_page_config(page_title="News Classifier", page_icon="📰")
 
-X_train, y_train, X_test, y_test = load_data()
+# 1. Load and Filter Data
+@st.cache_data
+def load_bbc_data():
+    df = pd.read_csv('bbc_data.csv')
+    # Filter for only Sport and Politics
+    df = df[df['category'].isin(['sport', 'politics'])]
+    return df
 
-# 2. Model Training
+df = load_bbc_data()
+
+# 2. Sidebar Setup
+st.sidebar.header("Model Configuration")
+technique = st.sidebar.selectbox("Select ML Technique", 
+                                 ["Naive Bayes", "Logistic Regression", "SVM"])
+
+# 3. Model Logic
+X_train, X_test, y_train, y_test = train_test_split(
+    df['text'], df['category'], test_size=0.2, random_state=42
+)
+
+# Define Model Dictionary
 models = {
     "Naive Bayes": MultinomialNB(),
-    "Logistic Regression": LogisticRegression(),
-    "SVM": SVC(probability=True)
+    "Logistic Regression": LogisticRegression(max_iter=1000),
+    "SVM": SVC(kernel='linear', probability=True)
 }
 
-st.title("🏆 Sports vs 🏛️ Politics Classifier")
-st.write("Comparing Naive Bayes, Logistic Regression, and SVM using TF-IDF.")
-
-selected_model_name = st.selectbox("Choose a Model to Test", list(models.keys()))
-
-# Build Pipeline
-text_clf = Pipeline([
-    ('tfidf', TfidfVectorizer(ngram_range=(1, 2), stop_words='english')),
-    ('clf', models[selected_model_name]),
+# Build Pipeline with TF-IDF
+pipeline = Pipeline([
+    ('tfidf', TfidfVectorizer(stop_words='english', ngram_range=(1, 2))),
+    ('clf', models[technique])
 ])
 
-text_clf.fit(X_train, y_train)
+# Train
+pipeline.fit(X_train, y_train)
+y_pred = pipeline.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
 
-# 3. UI for Testing
-user_input = st.text_area("Enter text to classify:", "The striker scored a goal in the final minute.")
+# 4. Main UI
+st.title("🏆 Sport vs 🏛️ Politics Classifier")
+st.markdown(f"Currently using: **{technique}** | Accuracy: **{accuracy:.2%}**")
 
-if st.button("Classify"):
-    pred = text_clf.predict([user_input])[0]
-    label = "Sports" if pred == 0 else "Politics"
-    st.subheader(f"Result: {label}")
-    
-    # Show Accuracy
-    y_pred = text_clf.predict(X_test)
-    acc = accuracy_score(y_test, y_pred)
-    st.info(f"Model Test Accuracy: {acc:.2%}")
+user_input = st.text_area("Paste a news snippet here:", placeholder="The prime minister announced...")
+
+if st.button("Classify Text"):
+    if user_input:
+        prediction = pipeline.predict([user_input])[0]
+        prob = pipeline.predict_proba([user_input])
+        
+        col1, col2 = st.columns(2)
+        col1.metric("Predicted Category", prediction.upper())
+        col2.metric("Confidence", f"{np.max(prob):.2%}")
+    else:
+        st.warning("Please enter some text.")
+
+# 5. Show Metrics Comparison (For your report)
+if st.checkbox("Show Detailed Analysis"):
+    st.text("Classification Report:")
+    st.code(classification_report(y_test, y_pred))
+    st.write("Dataset Distribution:")
+    st.bar_chart(df['category'].value_counts())
