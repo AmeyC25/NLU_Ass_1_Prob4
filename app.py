@@ -14,8 +14,8 @@ st.set_page_config(page_title="News Classifier", page_icon="📰")
 # 1. Load and Filter Data
 @st.cache_data
 def load_bbc_data():
-    df = pd.read_csv('bbc_data.csv')
-    # Filter for only Sport and Politics
+    # Adding encoding='latin1' usually solves the UnicodeDecodeError for this dataset
+    df = pd.read_csv('bbc_data.csv', encoding='latin1')
     df = df[df['category'].isin(['sport', 'politics'])]
     return df
 
