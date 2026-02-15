@@ -1,13 +1,13 @@
 # 📰 Sports vs Politics Document Classifier
 
-A high-performance NLP system that classifies documents into **Sport** or **Politics** using Machine Learning. This project compares three different techniques and supports multiple file formats.
+A simple NLP system that classifies documents into **Sport** or **Politics** using Machine Learning. This project compares three different techniques and supports multiple file formats.
 
-##🚀 Live Demo
+🚀 Live Demo
 **Access the app here:** [https://oafj9udfbqchaq9g2sjqqb.streamlit.app/](https://oafj9udfbqchaq9g2sjqqb.streamlit.app/)
 
 ## 📊 Features
 - **Multi-Format Support:** Classify text by uploading `.txt`, `.pdf`, or `.docx` files.
-- **Model Comparison:** Switch between **Naive Bayes**, **Logistic Regression**, and **SVM** on the fly.
+- **Model Comparison:** Switch between **Naive Bayes**, **Logistic Regression**, and **SVM**.
 - **Advanced NLP:** Uses TF-IDF vectorization with Unigrams and Bigrams for maximum context.
 - **Dataset:** Trained on the professional BBC News Dataset.
 
