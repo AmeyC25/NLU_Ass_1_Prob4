@@ -1,74 +1,66 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score
 
-st.set_page_config(page_title="News Classifier", page_icon="📰")
+st.set_page_config(page_title="Politics vs Sport Classifier", page_icon="📰")
 
-# 1. Load and Filter Data
+# 1. Safe Data Loading
 @st.cache_data
-def load_bbc_data():
-    # Adding encoding='latin1' usually solves the UnicodeDecodeError for this dataset
-    df = pd.read_csv('bbc_data.csv', encoding='latin1')
-    df = df[df['category'].isin(['sport', 'politics'])]
+def load_data():
+    df = pd.read_csv('bbc_data.csv')
+    # Filter for Sport and Politics based on your CSV's 'type' column
+    df = df[df['type'].isin(['sport', 'politics'])]
     return df
 
-df = load_bbc_data()
+try:
+    df = load_data()
+    X = df['news']
+    y = df['type']
+except Exception as e:
+    st.error(f"Error loading CSV: {e}. Ensure 'bbc_data.csv' has 'news' and 'type' columns.")
+    st.stop()
 
-# 2. Sidebar Setup
-st.sidebar.header("Model Configuration")
-technique = st.sidebar.selectbox("Select ML Technique", 
-                                 ["Naive Bayes", "Logistic Regression", "SVM"])
+# 2. Sidebar for Model Selection
+st.sidebar.title("Model Settings")
+model_type = st.sidebar.selectbox("Select ML Technique", ("Naive Bayes", "Logistic Regression", "SVM"))
 
-# 3. Model Logic
-X_train, X_test, y_train, y_test = train_test_split(
-    df['text'], df['category'], test_size=0.2, random_state=42
-)
+# 3. Training the Pipeline
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Define Model Dictionary
 models = {
     "Naive Bayes": MultinomialNB(),
-    "Logistic Regression": LogisticRegression(max_iter=1000),
-    "SVM": SVC(kernel='linear', probability=True)
+    "Logistic Regression": LogisticRegression(),
+    "SVM": SVC(probability=True, kernel='linear')
 }
 
-# Build Pipeline with TF-IDF
+# Feature Representation: TF-IDF with Unigrams and Bigrams
 pipeline = Pipeline([
     ('tfidf', TfidfVectorizer(stop_words='english', ngram_range=(1, 2))),
-    ('clf', models[technique])
+    ('clf', models[model_type])
 ])
 
-# Train
 pipeline.fit(X_train, y_train)
-y_pred = pipeline.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred)
 
-# 4. Main UI
+# 4. App UI
 st.title("🏆 Sport vs 🏛️ Politics Classifier")
-st.markdown(f"Currently using: **{technique}** | Accuracy: **{accuracy:.2%}**")
+st.write(f"Currently testing: **{model_type}**")
 
-user_input = st.text_area("Paste a news snippet here:", placeholder="The prime minister announced...")
+user_text = st.text_area("Enter text to classify:", "The minister signed the new bill into law today.")
 
-if st.button("Classify Text"):
-    if user_input:
-        prediction = pipeline.predict([user_input])[0]
-        prob = pipeline.predict_proba([user_input])
-        
-        col1, col2 = st.columns(2)
-        col1.metric("Predicted Category", prediction.upper())
-        col2.metric("Confidence", f"{np.max(prob):.2%}")
-    else:
-        st.warning("Please enter some text.")
+if st.button("Classify"):
+    prediction = pipeline.predict([user_text])[0]
+    st.subheader(f"Prediction: {prediction.upper()}")
+    
+    # Show internal stats
+    acc = accuracy_score(y_test, pipeline.predict(X_test))
+    st.info(f"Model Test Accuracy: {acc:.2%}")
 
-# 5. Show Metrics Comparison (For your report)
-if st.checkbox("Show Detailed Analysis"):
-    st.text("Classification Report:")
-    st.code(classification_report(y_test, y_pred))
-    st.write("Dataset Distribution:")
-    st.bar_chart(df['category'].value_counts())
+st.divider()
+st.write("### Dataset Analysis")
+st.bar_chart(df['type'].value_counts())
